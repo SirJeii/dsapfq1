@@ -1,400 +1,454 @@
-import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, XCircle, Award, EyeOff, Play, RefreshCw } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT2503 Quiz - Parallel Algorithms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .option-btn {
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
-const questions = [
-  {
-    question: "What defines how a computation is divided into tasks, assigned to processors, and executed simultaneously?",
-    options: ["Algorithmic Complexity", "Parallel Algorithm Model", "Multithreading", "Sequential Processing"],
-    answer: "Parallel Algorithm Model"
-  },
-  {
-    question: "In parallel algorithm terminologies, what is the unit of computation executed independently?",
-    options: ["Processor", "Granularity", "Task", "Thread"],
-    answer: "Task"
-  },
-  {
-    question: "What term describes the amount of computation per communication?",
-    options: ["Synchronization", "Throughput", "Latency", "Granularity"],
-    answer: "Granularity"
-  },
-  {
-    question: "Which parallel model distributes a large data set into smaller chunks where each processor executes the same instruction?",
-    options: ["Task Graph Model", "Work Pool Model", "Data-Parallel Model", "Pipeline Model"],
-    answer: "Data-Parallel Model"
-  },
-  {
-    question: "SIMD (Single Instruction, Multiple Data) architectures are the foundation of which model?",
-    options: ["Master-Worker Model", "Data-Parallel Model", "Hybrid Model", "Pipeline Model"],
-    answer: "Data-Parallel Model"
-  },
-  {
-    question: "Which model represents tasks and their dependencies using a Directed Acyclic Graph (DAG)?",
-    options: ["Task Graph Model", "Data-Parallel Model", "Work Pool Model", "Master-Worker Model"],
-    answer: "Task Graph Model"
-  },
-  {
-    question: "In which model are all tasks stored in a shared queue, allowing processors to 'pull' work as they become idle?",
-    options: ["Pipeline Model", "Master-Worker Model", "Work Pool Model", "Hybrid Model"],
-    answer: "Work Pool Model"
-  },
-  {
-    question: "Which model uses a central controller to distribute tasks to several worker processors?",
-    options: ["Work Pool Model", "Master-Worker Model", "Task Graph Model", "Pipeline Model"],
-    answer: "Master-Worker Model"
-  },
-  {
-    question: "Which parallel model divides a computation into ordered stages, similar to an assembly line?",
-    options: ["Pipeline Model", "Hybrid Model", "Data-Parallel Model", "Master-Worker Model"],
-    answer: "Pipeline Model"
-  },
-  {
-    question: "What concurrency technique allows a single process to run multiple independent sequences of instructions?",
-    options: ["Virtualization", "Multithreading", "Pipelining", "Partitioning"],
-    answer: "Multithreading"
-  },
-  {
-    question: "Which data structure allows multiple threads to safely enqueue and dequeue items without explicit synchronization?",
-    options: ["Linked List", "Binary Tree", "Concurrent Queue", "Stack"],
-    answer: "Concurrent Queue"
-  },
-  {
-    question: "Which type of queue blocks threads attempting to enqueue when full or dequeue when empty?",
-    options: ["Priority Queue", "Blocking Queue", "ConcurrentLinkedQueue", "Circular Queue"],
-    answer: "Blocking Queue"
-  },
-  {
-    question: "Which data structures rely on atomic operations instead of traditional locking mechanisms (mutexes)?",
-    options: ["Synchronized Collections", "Immutable Data Structures", "Lock-Free/Wait-Free Data Structures", "Blocking Queues"],
-    answer: "Lock-Free/Wait-Free Data Structures"
-  },
-  {
-    question: "What characteristic makes Immutable Data Structures inherently thread-safe?",
-    options: ["They block all threads", "They cannot be modified after creation", "They use mutexes", "They have low latency"],
-    answer: "They cannot be modified after creation"
-  },
-  {
-    question: "What notation is used to represent algorithmic complexity?",
-    options: ["Big O notation", "Lambda notation", "Binary notation", "Sigma notation"],
-    answer: "Big O notation"
-  },
-  {
-    question: "Which complexity denotes 'Constant Time'?",
-    options: ["O(n)", "O(log n)", "O(1)", "O(n^2)"],
-    answer: "O(1)"
-  },
-  {
-    question: "Binary search in a sorted array typically has which time complexity?",
-    options: ["O(1)", "O(n)", "O(log n)", "O(n^2)"],
-    answer: "O(log n)"
-  },
-  {
-    question: "Which time complexity is typical for algorithms with nested loops, like Bubble Sort?",
-    options: ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"],
-    answer: "O(n^2)"
-  },
-  {
-    question: "O(2^n) represents which type of time complexity?",
-    options: ["Linear Time", "Quadratic Time", "Exponential Time", "Cubic Time"],
-    answer: "Exponential Time"
-  },
-  {
-    question: "What is the formula for 'Turn Around Time'?",
-    options: ["Completion Time - Arrival Time", "Turn Around Time - Burst Time", "Completion Time + Burst Time", "Arrival Time - Waiting Time"],
-    answer: "Completion Time - Arrival Time"
-  },
-  {
-    question: "Which scheduling method runs a process to completion without forcibly taking the CPU away?",
-    options: ["Preemptive", "Non-preemptive", "Round Robin", "Multilevel Feedback Queue"],
-    answer: "Non-preemptive"
-  },
-  {
-    question: "Which scheduling algorithm executes processes in the order they arrive in the ready queue?",
-    options: ["SJF", "SRTF", "FCFS", "Round Robin"],
-    answer: "FCFS"
-  },
-  {
-    question: "What is a major disadvantage of the Shortest Job First (SJF) algorithm?",
-    options: ["High overhead", "Complex implementation", "Starvation of long processes", "Frequent context switching"],
-    answer: "Starvation of long processes"
-  },
-  {
-    question: "Which algorithm is the preemptive version of Shortest Job First?",
-    options: ["FCFS", "Round Robin", "SRTF", "Priority Scheduling"],
-    answer: "SRTF"
-  },
-  {
-    question: "In Priority Scheduling, what technique is often used to prevent starvation of low-priority processes?",
-    options: ["Paging", "Aging", "Swapping", "Blocking"],
-    answer: "Aging"
-  },
-  {
-    question: "Which preemptive algorithm gives each process a fixed time slice (quantum)?",
-    options: ["Round Robin", "FCFS", "SJF", "Priority Scheduling"],
-    answer: "Round Robin"
-  },
-  {
-    question: "What is the best use case for Round Robin scheduling?",
-    options: ["Batch processing", "Interactive and multi-user environments", "Real-time sensor systems", "Background jobs"],
-    answer: "Interactive and multi-user environments"
-  },
-  {
-    question: "Which scheduling method divides processes into multiple queues with different scheduling policies (e.g., foreground vs background)?",
-    options: ["Multilevel Queue (MLQ)", "FCFS", "SJF", "Round Robin"],
-    answer: "Multilevel Queue (MLQ)"
-  },
-  {
-    question: "What distinguishes Multilevel Feedback Queue (MLFQ) from standard MLQ?",
-    options: ["It uses only one queue", "Processes can move between queues", "It is non-preemptive", "It ignores CPU usage"],
-    answer: "Processes can move between queues"
-  },
-  {
-    question: "Wait-Free data structures are particularly useful for which type of systems?",
-    options: ["Batch processing systems", "Real-time systems requiring predictable execution", "Single-threaded applications", "Offline storage systems"],
-    answer: "Real-time systems requiring predictable execution"
-  }
-];
-
-const QuizApp = () => {
-  const [gameState, setGameState] = useState('start'); // start, playing, result
-  const [fullName, setFullName] = useState('');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [tabSwitches, setTabSwitches] = useState(0);
-  const [userAnswers, setUserAnswers] = useState([]);
-  const [showFeedback, setShowFeedback] = useState(false); // To show immediate correct/wrong status
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden && gameState === 'playing') {
-        setTabSwitches(prev => prev + 1);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [gameState]);
-
-  const startQuiz = () => {
-    if (fullName.trim() === "") return;
-    setGameState('playing');
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setTabSwitches(0);
-    setUserAnswers([]);
-    setShowFeedback(false);
-  };
-
-  const handleAnswer = (selectedOption) => {
-    if (showFeedback) return; // Prevent multiple clicks
-
-    const isCorrect = selectedOption === questions[currentQuestionIndex].answer;
-    if (isCorrect) {
-      setScore(prev => prev + 1);
-    }
-    
-    setUserAnswers([...userAnswers, { 
-      question: questions[currentQuestionIndex].question,
-      selected: selectedOption,
-      correct: questions[currentQuestionIndex].answer,
-      isCorrect 
-    }]);
-
-    setShowFeedback(true);
-
-    // Auto advance after short delay
-    setTimeout(() => {
-      if (currentQuestionIndex < questions.length - 1) {
-        setCurrentQuestionIndex(prev => prev + 1);
-        setShowFeedback(false);
-      } else {
-        setGameState('result');
-      }
-    }, 1000);
-  };
-
-  const restartQuiz = () => {
-    setGameState('start');
-    setFullName('');
-    setScore(0);
-    setTabSwitches(0);
-    setCurrentQuestionIndex(0);
-  };
-
-  // --- RENDER START SCREEN ---
-  if (gameState === 'start') {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
-        <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-center">
-            <h1 className="text-3xl font-bold mb-2 text-white">IT2503 Quiz</h1>
-            <p className="text-blue-100 opacity-90">Parallel Algorithms & Multithreading</p>
-          </div>
-          
-          <div className="p-8 space-y-6">
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex gap-3 items-start">
-              <AlertTriangle className="text-yellow-500 shrink-0 mt-1" size={20} />
-              <div className="text-sm text-yellow-200">
-                <p className="font-semibold mb-1">Anti-Cheat Enabled</p>
-                <p>Tab switching is monitored. Please stay on this screen during the entire quiz.</p>
-              </div>
+    <!-- START SCREEN -->
+    <div id="start-screen" class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 fade-in">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-center">
+            <h1 class="text-3xl font-bold mb-2 text-white">IT2503 Quiz</h1>
+            <p class="text-blue-100 opacity-90">Parallel Algorithms & Multithreading</p>
+        </div>
+        
+        <div class="p-8 space-y-6">
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex gap-3 items-start">
+                <i class="fas fa-exclamation-triangle text-yellow-500 mt-1"></i>
+                <div class="text-sm text-yellow-200">
+                    <p class="font-semibold mb-1">Anti-Cheat Enabled</p>
+                    <p>Tab switching is monitored. Please stay on this screen during the entire quiz.</p>
+                </div>
             </div>
 
             <div>
-              <label className="block text-slate-400 text-sm font-medium mb-2">Enter your Full Name</label>
-              <input 
-                type="text" 
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Juan Dela Cruz"
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-600"
-              />
+                <label class="block text-slate-400 text-sm font-medium mb-2">Enter your Full Name</label>
+                <input type="text" id="full-name" placeholder="Juan Dela Cruz"
+                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-600">
             </div>
 
-            <button 
-              onClick={startQuiz}
-              disabled={!fullName.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all transform active:scale-95"
-            >
-              <Play size={20} />
-              Start Quiz
+            <button onclick="startQuiz()" id="start-btn" disabled
+                class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all transform active:scale-95">
+                <i class="fas fa-play"></i> Start Quiz
             </button>
             
-            <p className="text-center text-slate-500 text-xs">
-              30 Questions • Multiple Choice
-            </p>
-          </div>
+            <p class="text-center text-slate-500 text-xs">30 Questions • Multiple Choice</p>
         </div>
-      </div>
-    );
-  }
+    </div>
 
-  // --- RENDER PLAYING SCREEN ---
-  if (gameState === 'playing') {
-    const currentQ = questions[currentQuestionIndex];
-    return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-slate-100">
-        <div className="max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 relative overflow-hidden">
-          
-          {/* Progress Bar */}
-          <div className="absolute top-0 left-0 w-full h-2 bg-slate-700">
-            <div 
-              className="h-full bg-blue-500 transition-all duration-300 ease-out"
-              style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
-            ></div>
-          </div>
+    <!-- QUIZ SCREEN -->
+    <div id="quiz-screen" class="hidden max-w-2xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 relative overflow-hidden fade-in">
+        <!-- Progress Bar -->
+        <div class="absolute top-0 left-0 w-full h-2 bg-slate-700">
+            <div id="progress-bar" class="h-full bg-blue-500 transition-all duration-300 ease-out" style="width: 0%"></div>
+        </div>
 
-          <div className="p-8">
-            <div className="flex justify-between items-center mb-6 text-slate-400 text-sm font-medium uppercase tracking-wider">
-              <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-              <span className="bg-slate-700 px-3 py-1 rounded-full text-slate-300">{fullName}</span>
+        <div class="p-8">
+            <div class="flex justify-between items-center mb-6 text-slate-400 text-sm font-medium uppercase tracking-wider">
+                <span id="question-tracker">Question 1 of 30</span>
+                <span id="user-display" class="bg-slate-700 px-3 py-1 rounded-full text-slate-300">User</span>
             </div>
 
-            <h2 className="text-2xl font-semibold mb-8 text-white leading-relaxed">
-              {currentQ.question}
+            <h2 id="question-text" class="text-2xl font-semibold mb-8 text-white leading-relaxed">
+                Question text goes here?
             </h2>
 
-            <div className="space-y-3">
-              {currentQ.options.map((option, idx) => {
-                let buttonClass = "w-full text-left p-4 rounded-xl border-2 transition-all duration-200 font-medium ";
-                
-                if (showFeedback) {
-                  if (option === currentQ.answer) {
-                    buttonClass += "bg-green-500/20 border-green-500 text-green-300";
-                  } else if (option !== currentQ.answer && idx === currentQ.options.indexOf(userAnswers[currentQuestionIndex]?.selected)) {
-                    // This creates a visual glitch since userAnswers might not be updated fast enough for strict React rendering
-                    // but for this logic we usually rely on local state or just checking the clicked one.
-                    // Simplified logic below:
-                  } else {
-                    buttonClass += "bg-slate-800 border-slate-700 opacity-50";
-                  }
-                } else {
-                  buttonClass += "bg-slate-750 border-slate-700 hover:border-blue-500 hover:bg-slate-700 text-slate-200";
-                }
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleAnswer(option)}
-                    disabled={showFeedback}
-                    className={buttonClass}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span>{option}</span>
-                      {showFeedback && option === currentQ.answer && <CheckCircle size={20} className="text-green-500" />}
-                    </div>
-                  </button>
-                );
-              })}
+            <div id="options-container" class="space-y-3">
+                <!-- Options will be injected here -->
             </div>
-          </div>
-          
-          <div className="bg-slate-900/50 p-4 text-center text-slate-500 text-xs">
+        </div>
+        
+        <div class="bg-slate-900/50 p-4 text-center text-slate-500 text-xs">
             DO NOT SWITCH TABS
-          </div>
         </div>
-      </div>
-    );
-  }
+    </div>
 
-  // --- RENDER RESULT SCREEN ---
-  if (gameState === 'result') {
-    const percentage = Math.round((score / questions.length) * 100);
-    let gradeColor = "text-red-500";
-    if (percentage >= 80) gradeColor = "text-green-500";
-    else if (percentage >= 60) gradeColor = "text-yellow-500";
-
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
-        <div className="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
-          <div className="bg-slate-900 p-8 text-center border-b border-slate-700">
-            <div className="inline-block p-4 rounded-full bg-slate-800 mb-4 shadow-inner">
-              <Award className={gradeColor} size={48} />
+    <!-- RESULT SCREEN -->
+    <div id="result-screen" class="hidden max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 fade-in">
+        <div class="bg-slate-900 p-8 text-center border-b border-slate-700">
+            <div class="inline-block p-4 rounded-full bg-slate-800 mb-4 shadow-inner">
+                <i id="grade-icon" class="fas fa-award text-4xl text-yellow-500"></i>
             </div>
-            <h2 className="text-3xl font-bold text-white mb-2">Quiz Completed!</h2>
-            <p className="text-slate-400">{fullName}</p>
-          </div>
+            <h2 class="text-3xl font-bold text-white mb-2">Quiz Completed!</h2>
+            <p id="result-name" class="text-slate-400">User Name</p>
+        </div>
 
-          <div className="p-8 space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-slate-700/50 p-4 rounded-xl text-center">
-                <p className="text-slate-400 text-sm mb-1">Final Score</p>
-                <p className={`text-3xl font-bold ${gradeColor}`}>{score}/{questions.length}</p>
-              </div>
-              <div className={`bg-slate-700/50 p-4 rounded-xl text-center ${tabSwitches > 0 ? 'ring-2 ring-red-500/50' : ''}`}>
-                <p className="text-slate-400 text-sm mb-1">Tab Switches</p>
-                <div className="flex items-center justify-center gap-2">
-                  <EyeOff size={20} className={tabSwitches > 0 ? "text-red-400" : "text-slate-500"} />
-                  <p className={`text-3xl font-bold ${tabSwitches > 0 ? "text-red-400" : "text-slate-200"}`}>{tabSwitches}</p>
+        <div class="p-8 space-y-6">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-slate-700/50 p-4 rounded-xl text-center">
+                    <p class="text-slate-400 text-sm mb-1">Final Score</p>
+                    <p id="final-score" class="text-3xl font-bold text-white">0/30</p>
                 </div>
-              </div>
+                <div id="tab-switch-container" class="bg-slate-700/50 p-4 rounded-xl text-center">
+                    <p class="text-slate-400 text-sm mb-1">Tab Switches</p>
+                    <div class="flex items-center justify-center gap-2">
+                        <i id="eye-icon" class="fas fa-eye-slash text-slate-500"></i>
+                        <p id="tab-switches" class="text-3xl font-bold text-slate-200">0</p>
+                    </div>
+                </div>
             </div>
 
-            {tabSwitches > 0 && (
-               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex gap-3 items-center">
-                 <AlertTriangle className="text-red-500 shrink-0" size={20} />
-                 <p className="text-sm text-red-200">
-                   Irregular activity detected. You left the quiz screen {tabSwitches} times.
-                 </p>
-               </div>
-            )}
+            <div id="cheat-warning" class="hidden bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex gap-3 items-center">
+                <i class="fas fa-exclamation-triangle text-red-500 shrink-0"></i>
+                <p class="text-sm text-red-200">
+                   Irregular activity detected. You left the quiz screen <span id="switch-count-text">0</span> times.
+                </p>
+            </div>
 
-            <button 
-              onClick={restartQuiz}
-              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
-            >
-              <RefreshCw size={20} />
-              Take Quiz Again
+            <button onclick="restartQuiz()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
+                <i class="fas fa-redo"></i> Take Quiz Again
             </button>
-          </div>
         </div>
-      </div>
-    );
-  }
+    </div>
 
-  return null;
-};
+    <script>
+        // Data
+        const questions = [
+            {
+                question: "What defines how a computation is divided into tasks, assigned to processors, and executed simultaneously?",
+                options: ["Algorithmic Complexity", "Parallel Algorithm Model", "Multithreading", "Sequential Processing"],
+                answer: "Parallel Algorithm Model"
+            },
+            {
+                question: "In parallel algorithm terminologies, what is the unit of computation executed independently?",
+                options: ["Processor", "Granularity", "Task", "Thread"],
+                answer: "Task"
+            },
+            {
+                question: "What term describes the amount of computation per communication?",
+                options: ["Synchronization", "Throughput", "Latency", "Granularity"],
+                answer: "Granularity"
+            },
+            {
+                question: "Which parallel model distributes a large data set into smaller chunks where each processor executes the same instruction?",
+                options: ["Task Graph Model", "Work Pool Model", "Data-Parallel Model", "Pipeline Model"],
+                answer: "Data-Parallel Model"
+            },
+            {
+                question: "SIMD (Single Instruction, Multiple Data) architectures are the foundation of which model?",
+                options: ["Master-Worker Model", "Data-Parallel Model", "Hybrid Model", "Pipeline Model"],
+                answer: "Data-Parallel Model"
+            },
+            {
+                question: "Which model represents tasks and their dependencies using a Directed Acyclic Graph (DAG)?",
+                options: ["Task Graph Model", "Data-Parallel Model", "Work Pool Model", "Master-Worker Model"],
+                answer: "Task Graph Model"
+            },
+            {
+                question: "In which model are all tasks stored in a shared queue, allowing processors to 'pull' work as they become idle?",
+                options: ["Pipeline Model", "Master-Worker Model", "Work Pool Model", "Hybrid Model"],
+                answer: "Work Pool Model"
+            },
+            {
+                question: "Which model uses a central controller to distribute tasks to several worker processors?",
+                options: ["Work Pool Model", "Master-Worker Model", "Task Graph Model", "Pipeline Model"],
+                answer: "Master-Worker Model"
+            },
+            {
+                question: "Which parallel model divides a computation into ordered stages, similar to an assembly line?",
+                options: ["Pipeline Model", "Hybrid Model", "Data-Parallel Model", "Master-Worker Model"],
+                answer: "Pipeline Model"
+            },
+            {
+                question: "What concurrency technique allows a single process to run multiple independent sequences of instructions?",
+                options: ["Virtualization", "Multithreading", "Pipelining", "Partitioning"],
+                answer: "Multithreading"
+            },
+            {
+                question: "Which data structure allows multiple threads to safely enqueue and dequeue items without explicit synchronization?",
+                options: ["Linked List", "Binary Tree", "Concurrent Queue", "Stack"],
+                answer: "Concurrent Queue"
+            },
+            {
+                question: "Which type of queue blocks threads attempting to enqueue when full or dequeue when empty?",
+                options: ["Priority Queue", "Blocking Queue", "ConcurrentLinkedQueue", "Circular Queue"],
+                answer: "Blocking Queue"
+            },
+            {
+                question: "Which data structures rely on atomic operations instead of traditional locking mechanisms (mutexes)?",
+                options: ["Synchronized Collections", "Immutable Data Structures", "Lock-Free/Wait-Free Data Structures", "Blocking Queues"],
+                answer: "Lock-Free/Wait-Free Data Structures"
+            },
+            {
+                question: "What characteristic makes Immutable Data Structures inherently thread-safe?",
+                options: ["They block all threads", "They cannot be modified after creation", "They use mutexes", "They have low latency"],
+                answer: "They cannot be modified after creation"
+            },
+            {
+                question: "What notation is used to represent algorithmic complexity?",
+                options: ["Big O notation", "Lambda notation", "Binary notation", "Sigma notation"],
+                answer: "Big O notation"
+            },
+            {
+                question: "Which complexity denotes 'Constant Time'?",
+                options: ["O(n)", "O(log n)", "O(1)", "O(n^2)"],
+                answer: "O(1)"
+            },
+            {
+                question: "Binary search in a sorted array typically has which time complexity?",
+                options: ["O(1)", "O(n)", "O(log n)", "O(n^2)"],
+                answer: "O(log n)"
+            },
+            {
+                question: "Which time complexity is typical for algorithms with nested loops, like Bubble Sort?",
+                options: ["O(n)", "O(n log n)", "O(n^2)", "O(2^n)"],
+                answer: "O(n^2)"
+            },
+            {
+                question: "O(2^n) represents which type of time complexity?",
+                options: ["Linear Time", "Quadratic Time", "Exponential Time", "Cubic Time"],
+                answer: "Exponential Time"
+            },
+            {
+                question: "What is the formula for 'Turn Around Time'?",
+                options: ["Completion Time - Arrival Time", "Turn Around Time - Burst Time", "Completion Time + Burst Time", "Arrival Time - Waiting Time"],
+                answer: "Completion Time - Arrival Time"
+            },
+            {
+                question: "Which scheduling method runs a process to completion without forcibly taking the CPU away?",
+                options: ["Preemptive", "Non-preemptive", "Round Robin", "Multilevel Feedback Queue"],
+                answer: "Non-preemptive"
+            },
+            {
+                question: "Which scheduling algorithm executes processes in the order they arrive in the ready queue?",
+                options: ["SJF", "SRTF", "FCFS", "Round Robin"],
+                answer: "FCFS"
+            },
+            {
+                question: "What is a major disadvantage of the Shortest Job First (SJF) algorithm?",
+                options: ["High overhead", "Complex implementation", "Starvation of long processes", "Frequent context switching"],
+                answer: "Starvation of long processes"
+            },
+            {
+                question: "Which algorithm is the preemptive version of Shortest Job First?",
+                options: ["FCFS", "Round Robin", "SRTF", "Priority Scheduling"],
+                answer: "SRTF"
+            },
+            {
+                question: "In Priority Scheduling, what technique is often used to prevent starvation of low-priority processes?",
+                options: ["Paging", "Aging", "Swapping", "Blocking"],
+                answer: "Aging"
+            },
+            {
+                question: "Which preemptive algorithm gives each process a fixed time slice (quantum)?",
+                options: ["Round Robin", "FCFS", "SJF", "Priority Scheduling"],
+                answer: "Round Robin"
+            },
+            {
+                question: "What is the best use case for Round Robin scheduling?",
+                options: ["Batch processing", "Interactive and multi-user environments", "Real-time sensor systems", "Background jobs"],
+                answer: "Interactive and multi-user environments"
+            },
+            {
+                question: "Which scheduling method divides processes into multiple queues with different scheduling policies (e.g., foreground vs background)?",
+                options: ["Multilevel Queue (MLQ)", "FCFS", "SJF", "Round Robin"],
+                answer: "Multilevel Queue (MLQ)"
+            },
+            {
+                question: "What distinguishes Multilevel Feedback Queue (MLFQ) from standard MLQ?",
+                options: ["It uses only one queue", "Processes can move between queues", "It is non-preemptive", "It ignores CPU usage"],
+                answer: "Processes can move between queues"
+            },
+            {
+                question: "Wait-Free data structures are particularly useful for which type of systems?",
+                options: ["Batch processing systems", "Real-time systems requiring predictable execution", "Single-threaded applications", "Offline storage systems"],
+                answer: "Real-time systems requiring predictable execution"
+            }
+        ];
 
-export default QuizApp;
+        // State Variables
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let tabSwitches = 0;
+        let userName = "";
+        let isQuizActive = false;
+        let isLocked = false; // Prevents double clicking options
+
+        // DOM Elements
+        const startScreen = document.getElementById('start-screen');
+        const quizScreen = document.getElementById('quiz-screen');
+        const resultScreen = document.getElementById('result-screen');
+        const nameInput = document.getElementById('full-name');
+        const startBtn = document.getElementById('start-btn');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const progressBar = document.getElementById('progress-bar');
+        const questionTracker = document.getElementById('question-tracker');
+        const userDisplay = document.getElementById('user-display');
+
+        // Event Listener for Input
+        nameInput.addEventListener('input', () => {
+            if(nameInput.value.trim() !== "") {
+                startBtn.removeAttribute('disabled');
+            } else {
+                startBtn.setAttribute('disabled', 'true');
+            }
+        });
+
+        // Visibility API for Tab Switching
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && isQuizActive) {
+                tabSwitches++;
+                console.log("Tab switch detected: " + tabSwitches);
+            }
+        });
+
+        function startQuiz() {
+            userName = nameInput.value.trim();
+            if(!userName) return;
+
+            // Update UI
+            userDisplay.textContent = userName;
+            startScreen.classList.add('hidden');
+            quizScreen.classList.remove('hidden');
+            resultScreen.classList.add('hidden');
+
+            // Reset State
+            currentQuestionIndex = 0;
+            score = 0;
+            tabSwitches = 0;
+            isQuizActive = true;
+            isLocked = false;
+
+            renderQuestion();
+        }
+
+        function renderQuestion() {
+            const currentQ = questions[currentQuestionIndex];
+            
+            // Update Text
+            questionText.textContent = currentQ.question;
+            questionTracker.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
+            
+            // Update Progress Bar
+            const progressPercent = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+
+            // Clear previous options
+            optionsContainer.innerHTML = '';
+
+            // Generate Buttons
+            currentQ.options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn w-full text-left p-4 rounded-xl border-2 bg-slate-700/50 border-slate-700 hover:border-blue-500 hover:bg-slate-700 text-slate-200 font-medium flex justify-between items-center";
+                btn.innerHTML = `<span>${option}</span>`;
+                btn.onclick = () => handleAnswer(option, btn);
+                optionsContainer.appendChild(btn);
+            });
+            
+            isLocked = false;
+        }
+
+        function handleAnswer(selectedOption, btnElement) {
+            if (isLocked) return;
+            isLocked = true;
+
+            const currentQ = questions[currentQuestionIndex];
+            const isCorrect = selectedOption === currentQ.answer;
+
+            // Visual Feedback
+            if (isCorrect) {
+                score++;
+                btnElement.classList.remove('border-slate-700', 'bg-slate-700/50');
+                btnElement.classList.add('bg-green-500/20', 'border-green-500', 'text-green-300');
+                btnElement.innerHTML += '<i class="fas fa-check-circle text-green-500"></i>';
+            } else {
+                btnElement.classList.remove('border-slate-700', 'bg-slate-700/50');
+                btnElement.classList.add('bg-slate-800', 'border-slate-700', 'opacity-50');
+                // Highlight correct answer
+                const buttons = optionsContainer.getElementsByTagName('button');
+                for (let btn of buttons) {
+                    if (btn.innerText.includes(currentQ.answer)) {
+                        btn.classList.remove('border-slate-700', 'bg-slate-700/50');
+                        btn.classList.add('bg-green-500/20', 'border-green-500', 'text-green-300');
+                        btn.innerHTML += '<i class="fas fa-check-circle text-green-500"></i>';
+                    }
+                }
+            }
+
+            // Next Question Delay
+            setTimeout(() => {
+                if (currentQuestionIndex < questions.length - 1) {
+                    currentQuestionIndex++;
+                    renderQuestion();
+                } else {
+                    endQuiz();
+                }
+            }, 1000);
+        }
+
+        function endQuiz() {
+            isQuizActive = false;
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            document.getElementById('result-name').textContent = userName;
+            document.getElementById('final-score').textContent = `${score}/${questions.length}`;
+            document.getElementById('tab-switches').textContent = tabSwitches;
+
+            // Coloring based on score
+            const finalScoreElement = document.getElementById('final-score');
+            const gradeIcon = document.getElementById('grade-icon');
+            const percentage = (score / questions.length) * 100;
+
+            finalScoreElement.className = "text-3xl font-bold"; // reset
+            if (percentage >= 80) {
+                finalScoreElement.classList.add('text-green-500');
+                gradeIcon.className = "fas fa-award text-4xl text-green-500";
+            } else if (percentage >= 60) {
+                finalScoreElement.classList.add('text-yellow-500');
+                gradeIcon.className = "fas fa-award text-4xl text-yellow-500";
+            } else {
+                finalScoreElement.classList.add('text-red-500');
+                gradeIcon.className = "fas fa-award text-4xl text-red-500";
+            }
+
+            // Tab Switch Coloring
+            const tabContainer = document.getElementById('tab-switch-container');
+            const eyeIcon = document.getElementById('eye-icon');
+            const tabText = document.getElementById('tab-switches');
+            const cheatWarning = document.getElementById('cheat-warning');
+
+            if (tabSwitches > 0) {
+                tabContainer.classList.add('ring-2', 'ring-red-500/50');
+                eyeIcon.className = "fas fa-eye-slash text-red-400";
+                tabText.className = "text-3xl font-bold text-red-400";
+                
+                cheatWarning.classList.remove('hidden');
+                document.getElementById('switch-count-text').textContent = tabSwitches;
+            } else {
+                tabContainer.classList.remove('ring-2', 'ring-red-500/50');
+                eyeIcon.className = "fas fa-eye-slash text-slate-500";
+                tabText.className = "text-3xl font-bold text-slate-200";
+                cheatWarning.classList.add('hidden');
+            }
+        }
+
+        function restartQuiz() {
+            nameInput.value = "";
+            startBtn.setAttribute('disabled', 'true');
+            resultScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
