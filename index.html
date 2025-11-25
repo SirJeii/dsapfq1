@@ -9,6 +9,8 @@
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none; /* Make text unselectable */
+            -webkit-user-select: none;
         }
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
@@ -20,9 +22,18 @@
         .option-btn {
             transition: all 0.2s ease;
         }
+        /* Pulse animation for the countdown warning */
+        .pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4" oncontextmenu="return false;">
 
     <!-- START SCREEN -->
     <div id="start-screen" class="max-w-md w-full bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700 fade-in">
@@ -33,16 +44,20 @@
         
         <div class="p-8 space-y-6">
             <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex gap-3 items-start">
-                <i class="fas fa-exclamation-triangle text-yellow-500 mt-1"></i>
+                <i class="fas fa-shield-alt text-yellow-500 mt-1"></i>
                 <div class="text-sm text-yellow-200">
-                    <p class="font-semibold mb-1">Anti-Cheat Enabled</p>
-                    <p>Tab switching is monitored. Please stay on this screen during the entire quiz.</p>
+                    <p class="font-semibold mb-1">Strict Mode Enabled</p>
+                    <ul class="list-disc list-inside space-y-1 opacity-90">
+                        <li>Tab switching is monitored.</li>
+                        <li>Right-click is disabled.</li>
+                        <li>10s inactivity triggers auto-submit.</li>
+                    </ul>
                 </div>
             </div>
 
             <div>
                 <label class="block text-slate-400 text-sm font-medium mb-2">Enter your Full Name</label>
-                <input type="text" id="full-name" placeholder="Juan Dela Cruz"
+                <input type="text" id="full-name" placeholder="Juan Dela Cruz" autocomplete="off"
                     class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-600">
             </div>
 
@@ -78,7 +93,20 @@
         </div>
         
         <div class="bg-slate-900/50 p-4 text-center text-slate-500 text-xs">
-            DO NOT SWITCH TABS
+            DO NOT SWITCH TABS • STAY ACTIVE
+        </div>
+    </div>
+
+    <!-- INACTIVITY WARNING OVERLAY -->
+    <div id="inactivity-overlay" class="hidden fixed inset-0 z-50 bg-slate-900/90 flex items-center justify-center backdrop-blur-sm">
+        <div class="bg-slate-800 border-2 border-red-500 p-8 rounded-2xl max-w-sm text-center shadow-2xl pulse-red">
+            <i class="fas fa-hourglass-half text-5xl text-red-500 mb-4"></i>
+            <h2 class="text-2xl font-bold text-white mb-2">Are you still there?</h2>
+            <p class="text-slate-300 mb-6">No activity detected.</p>
+            <div class="text-4xl font-mono font-bold text-red-400 mb-2">
+                00:0<span id="countdown-timer">5</span>
+            </div>
+            <p class="text-xs text-slate-500 uppercase tracking-widest">Auto-submitting...</p>
         </div>
     </div>
 
@@ -90,6 +118,7 @@
             </div>
             <h2 class="text-3xl font-bold text-white mb-2">Quiz Completed!</h2>
             <p id="result-name" class="text-slate-400">User Name</p>
+            <p id="timeout-badge" class="hidden inline-block mt-2 bg-red-500/20 text-red-300 text-xs px-2 py-1 rounded border border-red-500/50">Submitted due to Timeout</p>
         </div>
 
         <div class="p-8 space-y-6">
@@ -281,7 +310,14 @@
         let tabSwitches = 0;
         let userName = "";
         let isQuizActive = false;
-        let isLocked = false; // Prevents double clicking options
+        let isLocked = false; 
+
+        // Inactivity Timer Variables
+        let inactivityTimer;
+        let countdownInterval;
+        let warningActive = false;
+        const IDLE_LIMIT = 10000; // 10 seconds before warning
+        const COUNTDOWN_LIMIT = 5; // 5 seconds to respond
 
         // DOM Elements
         const startScreen = document.getElementById('start-screen');
@@ -294,8 +330,25 @@
         const progressBar = document.getElementById('progress-bar');
         const questionTracker = document.getElementById('question-tracker');
         const userDisplay = document.getElementById('user-display');
+        const inactivityOverlay = document.getElementById('inactivity-overlay');
+        const countdownDisplay = document.getElementById('countdown-timer');
+        const timeoutBadge = document.getElementById('timeout-badge');
 
-        // Event Listener for Input
+        // --- SECURITY & PREVENTIONS ---
+        
+        // 1. Prevent Right Click
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // 2. Prevent Common DevTool Shortcuts (Not foolproof but adds friction)
+        document.onkeydown = function(e) {
+            if(e.keyCode == 123) return false; // F12
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Ctrl+Shift+I
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Ctrl+Shift+C
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Ctrl+Shift+J
+            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Ctrl+U
+        }
+
+        // Input validation
         nameInput.addEventListener('input', () => {
             if(nameInput.value.trim() !== "") {
                 startBtn.removeAttribute('disabled');
@@ -304,13 +357,72 @@
             }
         });
 
-        // Visibility API for Tab Switching
+        // Tab Switching Logic
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && isQuizActive) {
                 tabSwitches++;
-                console.log("Tab switch detected: " + tabSwitches);
             }
         });
+
+        // --- INACTIVITY LOGIC ---
+
+        function resetActivityTimer() {
+            if (!isQuizActive) return;
+
+            // If warning is currently active, cancel it and hide overlay
+            if (warningActive) {
+                clearInterval(countdownInterval);
+                inactivityOverlay.classList.add('hidden');
+                warningActive = false;
+            }
+
+            // Clear the existing main timer
+            clearTimeout(inactivityTimer);
+
+            // Set new main timer (10 seconds)
+            inactivityTimer = setTimeout(showInactivityWarning, IDLE_LIMIT);
+        }
+
+        function showInactivityWarning() {
+            warningActive = true;
+            inactivityOverlay.classList.remove('hidden');
+            
+            let timeLeft = COUNTDOWN_LIMIT;
+            countdownDisplay.textContent = timeLeft;
+
+            countdownInterval = setInterval(() => {
+                timeLeft--;
+                countdownDisplay.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownInterval);
+                    endQuiz(true); // End quiz with timeout flag
+                }
+            }, 1000);
+        }
+
+        function setupActivityListeners() {
+            // Events that count as "Activity"
+            window.addEventListener('mousemove', resetActivityTimer);
+            window.addEventListener('mousedown', resetActivityTimer);
+            window.addEventListener('keypress', resetActivityTimer);
+            window.addEventListener('touchmove', resetActivityTimer);
+            window.addEventListener('click', resetActivityTimer);
+            window.addEventListener('scroll', resetActivityTimer);
+        }
+
+        function removeActivityListeners() {
+            window.removeEventListener('mousemove', resetActivityTimer);
+            window.removeEventListener('mousedown', resetActivityTimer);
+            window.removeEventListener('keypress', resetActivityTimer);
+            window.removeEventListener('touchmove', resetActivityTimer);
+            window.removeEventListener('click', resetActivityTimer);
+            window.removeEventListener('scroll', resetActivityTimer);
+            clearTimeout(inactivityTimer);
+            clearInterval(countdownInterval);
+        }
+
+        // --- QUIZ LOGIC ---
 
         function startQuiz() {
             userName = nameInput.value.trim();
@@ -321,6 +433,7 @@
             startScreen.classList.add('hidden');
             quizScreen.classList.remove('hidden');
             resultScreen.classList.add('hidden');
+            timeoutBadge.classList.add('hidden');
 
             // Reset State
             currentQuestionIndex = 0;
@@ -328,6 +441,11 @@
             tabSwitches = 0;
             isQuizActive = true;
             isLocked = false;
+            warningActive = false;
+
+            // Start Monitoring
+            setupActivityListeners();
+            resetActivityTimer(); // Start the first timer
 
             renderQuestion();
         }
@@ -335,23 +453,22 @@
         function renderQuestion() {
             const currentQ = questions[currentQuestionIndex];
             
-            // Update Text
             questionText.textContent = currentQ.question;
             questionTracker.textContent = `Question ${currentQuestionIndex + 1} of ${questions.length}`;
             
-            // Update Progress Bar
             const progressPercent = ((currentQuestionIndex + 1) / questions.length) * 100;
             progressBar.style.width = `${progressPercent}%`;
 
-            // Clear previous options
             optionsContainer.innerHTML = '';
 
-            // Generate Buttons
             currentQ.options.forEach(option => {
                 const btn = document.createElement('button');
                 btn.className = "option-btn w-full text-left p-4 rounded-xl border-2 bg-slate-700/50 border-slate-700 hover:border-blue-500 hover:bg-slate-700 text-slate-200 font-medium flex justify-between items-center";
                 btn.innerHTML = `<span>${option}</span>`;
-                btn.onclick = () => handleAnswer(option, btn);
+                btn.onclick = (e) => {
+                    e.stopPropagation(); // Prevent this click from instantly resetting timer differently if needed
+                    handleAnswer(option, btn);
+                };
                 optionsContainer.appendChild(btn);
             });
             
@@ -361,11 +478,13 @@
         function handleAnswer(selectedOption, btnElement) {
             if (isLocked) return;
             isLocked = true;
+            
+            // Interaction happened, ensure timer is reset
+            resetActivityTimer();
 
             const currentQ = questions[currentQuestionIndex];
             const isCorrect = selectedOption === currentQ.answer;
 
-            // Visual Feedback
             if (isCorrect) {
                 score++;
                 btnElement.classList.remove('border-slate-700', 'bg-slate-700/50');
@@ -374,7 +493,6 @@
             } else {
                 btnElement.classList.remove('border-slate-700', 'bg-slate-700/50');
                 btnElement.classList.add('bg-slate-800', 'border-slate-700', 'opacity-50');
-                // Highlight correct answer
                 const buttons = optionsContainer.getElementsByTagName('button');
                 for (let btn of buttons) {
                     if (btn.innerText.includes(currentQ.answer)) {
@@ -385,19 +503,23 @@
                 }
             }
 
-            // Next Question Delay
             setTimeout(() => {
                 if (currentQuestionIndex < questions.length - 1) {
                     currentQuestionIndex++;
                     renderQuestion();
                 } else {
-                    endQuiz();
+                    endQuiz(false);
                 }
             }, 1000);
         }
 
-        function endQuiz() {
+        function endQuiz(isTimeout = false) {
             isQuizActive = false;
+            
+            // Stop monitoring
+            removeActivityListeners();
+            inactivityOverlay.classList.add('hidden');
+
             quizScreen.classList.add('hidden');
             resultScreen.classList.remove('hidden');
 
@@ -405,12 +527,16 @@
             document.getElementById('final-score').textContent = `${score}/${questions.length}`;
             document.getElementById('tab-switches').textContent = tabSwitches;
 
-            // Coloring based on score
+            if (isTimeout) {
+                timeoutBadge.classList.remove('hidden');
+            }
+
+            // Scoring UI
             const finalScoreElement = document.getElementById('final-score');
             const gradeIcon = document.getElementById('grade-icon');
             const percentage = (score / questions.length) * 100;
 
-            finalScoreElement.className = "text-3xl font-bold"; // reset
+            finalScoreElement.className = "text-3xl font-bold";
             if (percentage >= 80) {
                 finalScoreElement.classList.add('text-green-500');
                 gradeIcon.className = "fas fa-award text-4xl text-green-500";
@@ -422,7 +548,7 @@
                 gradeIcon.className = "fas fa-award text-4xl text-red-500";
             }
 
-            // Tab Switch Coloring
+            // Cheating UI
             const tabContainer = document.getElementById('tab-switch-container');
             const eyeIcon = document.getElementById('eye-icon');
             const tabText = document.getElementById('tab-switches');
