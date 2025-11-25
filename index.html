@@ -48,8 +48,9 @@
                 <div class="text-sm text-yellow-200">
                     <p class="font-semibold mb-1">Strict Mode Enabled</p>
                     <ul class="list-disc list-inside space-y-1 opacity-90">
+                        <li>**One attempt only.**</li>
+                        <li>**Do not refresh the page.**</li>
                         <li>Tab switching is monitored.</li>
-                        <li>Right-click is disabled.</li>
                         <li>10s inactivity triggers auto-submit.</li>
                     </ul>
                 </div>
@@ -59,6 +60,7 @@
                 <label class="block text-slate-400 text-sm font-medium mb-2">Enter your Full Name</label>
                 <input type="text" id="full-name" placeholder="Juan Dela Cruz" autocomplete="off"
                     class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder-slate-600">
+                <p class="text-xs text-slate-600 mt-2 text-center" id="ip-display">Detecting IP...</p>
             </div>
 
             <button onclick="startQuiz()" id="start-btn" disabled
@@ -118,7 +120,11 @@
             </div>
             <h2 class="text-3xl font-bold text-white mb-2">Quiz Completed!</h2>
             <p id="result-name" class="text-slate-400">User Name</p>
-            <p id="timeout-badge" class="hidden inline-block mt-2 bg-red-500/20 text-red-300 text-xs px-2 py-1 rounded border border-red-500/50">Submitted due to Timeout</p>
+            
+            <div class="flex flex-col gap-2 mt-2">
+                <p id="timeout-badge" class="hidden inline-block bg-red-500/20 text-red-300 text-xs px-2 py-1 rounded border border-red-500/50">Submitted due to Timeout</p>
+                <p id="refresh-badge" class="hidden inline-block bg-red-500/20 text-red-300 text-xs px-2 py-1 rounded border border-red-500/50">Disqualified: Page Refreshed</p>
+            </div>
         </div>
 
         <div class="p-8 space-y-6">
@@ -142,9 +148,15 @@
                    Irregular activity detected. You left the quiz screen <span id="switch-count-text">0</span> times.
                 </p>
             </div>
+            
+            <div class="bg-slate-900 rounded p-4 text-center">
+                <p class="text-xs text-slate-500 uppercase tracking-widest mb-1">Attempt ID</p>
+                <p class="text-xs font-mono text-slate-400 break-all" id="attempt-id">Not Recorded</p>
+            </div>
 
-            <button onclick="restartQuiz()" class="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                <i class="fas fa-redo"></i> Take Quiz Again
+            <!-- RESTART BUTTON REMOVED for strict mode -->
+            <button disabled class="w-full bg-slate-700 opacity-50 cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+                <i class="fas fa-lock"></i> No Retries Allowed
             </button>
         </div>
     </div>
@@ -309,10 +321,12 @@
         let score = 0;
         let tabSwitches = 0;
         let userName = "";
+        let userIP = "Unknown";
         let isQuizActive = false;
         let isLocked = false; 
+        const STORAGE_KEY = 'it2503_quiz_session_v1';
 
-        // Inactivity Timer Variables
+        // ... existing code (Inactivity Timer Variables) ...
         let inactivityTimer;
         let countdownInterval;
         let warningActive = false;
@@ -333,19 +347,86 @@
         const inactivityOverlay = document.getElementById('inactivity-overlay');
         const countdownDisplay = document.getElementById('countdown-timer');
         const timeoutBadge = document.getElementById('timeout-badge');
+        const refreshBadge = document.getElementById('refresh-badge');
+        const ipDisplay = document.getElementById('ip-display');
+        const attemptIdDisplay = document.getElementById('attempt-id');
+
+        // --- INITIALIZATION & IP CHECK ---
+
+        window.onload = async function() {
+            // 1. Fetch IP
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                userIP = data.ip;
+                ipDisplay.textContent = `IP Recorded: ${userIP}`;
+            } catch (e) {
+                console.log("IP Fetch failed", e);
+                ipDisplay.textContent = "IP Logging Enabled";
+            }
+
+            // 2. Check Local Storage for Existing Session
+            checkSession();
+        };
+
+        function checkSession() {
+            const savedSession = localStorage.getItem(STORAGE_KEY);
+            
+            if (savedSession) {
+                const session = JSON.parse(savedSession);
+                
+                // If they completed it previously
+                if (session.status === 'completed') {
+                    restoreResultScreen(session);
+                    return;
+                }
+                
+                // If they were IN PROGRESS and the page reloaded -> DISQUALIFY
+                if (session.status === 'in_progress') {
+                    handleDisqualification(session, "Refreshed Page");
+                    return;
+                }
+            }
+        }
+
+        function restoreResultScreen(session) {
+            startScreen.classList.add('hidden');
+            quizScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+            
+            // Restore Data
+            userName = session.name;
+            score = session.score;
+            tabSwitches = session.tabSwitches;
+
+            updateResultUI(session.reason === 'timeout', session.reason === 'refresh');
+        }
+
+        function handleDisqualification(session, reason) {
+            // Mark as completed but with penalty or keep existing score (which is 0 if they refreshed at start)
+            const completedSession = {
+                ...session,
+                status: 'completed',
+                reason: 'refresh', // Specific flag
+                timestamp: new Date().toISOString()
+            };
+            
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(completedSession));
+            restoreResultScreen(completedSession);
+        }
 
         // --- SECURITY & PREVENTIONS ---
         
         // 1. Prevent Right Click
         document.addEventListener('contextmenu', event => event.preventDefault());
 
-        // 2. Prevent Common DevTool Shortcuts (Not foolproof but adds friction)
+        // 2. Prevent Common DevTool Shortcuts
         document.onkeydown = function(e) {
-            if(e.keyCode == 123) return false; // F12
-            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; // Ctrl+Shift+I
-            if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; // Ctrl+Shift+C
-            if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; // Ctrl+Shift+J
-            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; // Ctrl+U
+            if(e.keyCode == 123) return false; 
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'I'.charCodeAt(0)) return false; 
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'C'.charCodeAt(0)) return false; 
+            if(e.ctrlKey && e.shiftKey && e.keyCode == 'J'.charCodeAt(0)) return false; 
+            if(e.ctrlKey && e.keyCode == 'U'.charCodeAt(0)) return false; 
         }
 
         // Input validation
@@ -368,41 +449,32 @@
 
         function resetActivityTimer() {
             if (!isQuizActive) return;
-
-            // If warning is currently active, cancel it and hide overlay
             if (warningActive) {
                 clearInterval(countdownInterval);
                 inactivityOverlay.classList.add('hidden');
                 warningActive = false;
             }
-
-            // Clear the existing main timer
             clearTimeout(inactivityTimer);
-
-            // Set new main timer (10 seconds)
             inactivityTimer = setTimeout(showInactivityWarning, IDLE_LIMIT);
         }
 
         function showInactivityWarning() {
             warningActive = true;
             inactivityOverlay.classList.remove('hidden');
-            
             let timeLeft = COUNTDOWN_LIMIT;
             countdownDisplay.textContent = timeLeft;
 
             countdownInterval = setInterval(() => {
                 timeLeft--;
                 countdownDisplay.textContent = timeLeft;
-
                 if (timeLeft <= 0) {
                     clearInterval(countdownInterval);
-                    endQuiz(true); // End quiz with timeout flag
+                    endQuiz(true); 
                 }
             }, 1000);
         }
 
         function setupActivityListeners() {
-            // Events that count as "Activity"
             window.addEventListener('mousemove', resetActivityTimer);
             window.addEventListener('mousedown', resetActivityTimer);
             window.addEventListener('keypress', resetActivityTimer);
@@ -428,12 +500,24 @@
             userName = nameInput.value.trim();
             if(!userName) return;
 
+            // Initialize Storage for "In Progress"
+            const sessionData = {
+                name: userName,
+                ip: userIP,
+                status: 'in_progress',
+                score: 0,
+                tabSwitches: 0,
+                startTime: new Date().toISOString()
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
+
             // Update UI
             userDisplay.textContent = userName;
             startScreen.classList.add('hidden');
             quizScreen.classList.remove('hidden');
             resultScreen.classList.add('hidden');
             timeoutBadge.classList.add('hidden');
+            refreshBadge.classList.add('hidden');
 
             // Reset State
             currentQuestionIndex = 0;
@@ -445,7 +529,7 @@
 
             // Start Monitoring
             setupActivityListeners();
-            resetActivityTimer(); // Start the first timer
+            resetActivityTimer(); 
 
             renderQuestion();
         }
@@ -466,7 +550,7 @@
                 btn.className = "option-btn w-full text-left p-4 rounded-xl border-2 bg-slate-700/50 border-slate-700 hover:border-blue-500 hover:bg-slate-700 text-slate-200 font-medium flex justify-between items-center";
                 btn.innerHTML = `<span>${option}</span>`;
                 btn.onclick = (e) => {
-                    e.stopPropagation(); // Prevent this click from instantly resetting timer differently if needed
+                    e.stopPropagation(); 
                     handleAnswer(option, btn);
                 };
                 optionsContainer.appendChild(btn);
@@ -479,7 +563,6 @@
             if (isLocked) return;
             isLocked = true;
             
-            // Interaction happened, ensure timer is reset
             resetActivityTimer();
 
             const currentQ = questions[currentQuestionIndex];
@@ -502,6 +585,9 @@
                     }
                 }
             }
+            
+            // Update Local Storage Progress (Optional: Store current question index if we wanted resume capability)
+            // For now, we just keep the session alive. We could update score here if we wanted "realtime" score saving.
 
             setTimeout(() => {
                 if (currentQuestionIndex < questions.length - 1) {
@@ -516,36 +602,68 @@
         function endQuiz(isTimeout = false) {
             isQuizActive = false;
             
-            // Stop monitoring
             removeActivityListeners();
             inactivityOverlay.classList.add('hidden');
+
+            // Save Final State to Local Storage
+            const sessionData = {
+                name: userName,
+                ip: userIP,
+                status: 'completed',
+                score: score,
+                tabSwitches: tabSwitches,
+                reason: isTimeout ? 'timeout' : 'completed',
+                timestamp: new Date().toISOString()
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(sessionData));
 
             quizScreen.classList.add('hidden');
             resultScreen.classList.remove('hidden');
 
+            updateResultUI(isTimeout, false);
+        }
+
+        function updateResultUI(isTimeout, isRefresh) {
             document.getElementById('result-name').textContent = userName;
             document.getElementById('final-score').textContent = `${score}/${questions.length}`;
             document.getElementById('tab-switches').textContent = tabSwitches;
+            
+            // Generate a fake hash ID based on IP + Name + Time for "verification"
+            const uniqueStr = `${userName}-${userIP}-${new Date().getDate()}`;
+            attemptIdDisplay.textContent = btoa(uniqueStr).substring(0, 16).toUpperCase();
 
+            // Status Badges
             if (isTimeout) {
                 timeoutBadge.classList.remove('hidden');
+            } else {
+                timeoutBadge.classList.add('hidden');
             }
 
-            // Scoring UI
-            const finalScoreElement = document.getElementById('final-score');
-            const gradeIcon = document.getElementById('grade-icon');
-            const percentage = (score / questions.length) * 100;
-
-            finalScoreElement.className = "text-3xl font-bold";
-            if (percentage >= 80) {
-                finalScoreElement.classList.add('text-green-500');
-                gradeIcon.className = "fas fa-award text-4xl text-green-500";
-            } else if (percentage >= 60) {
-                finalScoreElement.classList.add('text-yellow-500');
-                gradeIcon.className = "fas fa-award text-4xl text-yellow-500";
+            if (isRefresh) {
+                refreshBadge.classList.remove('hidden');
+                document.getElementById('final-score').classList.add('text-red-500');
+                document.getElementById('final-score').textContent = "DISQUALIFIED";
             } else {
-                finalScoreElement.classList.add('text-red-500');
-                gradeIcon.className = "fas fa-award text-4xl text-red-500";
+                refreshBadge.classList.add('hidden');
+            }
+
+            // Scoring Colors (only if not disqualified)
+            if (!isRefresh) {
+                const finalScoreElement = document.getElementById('final-score');
+                const gradeIcon = document.getElementById('grade-icon');
+                const percentage = (score / questions.length) * 100;
+
+                finalScoreElement.className = "text-3xl font-bold";
+                if (percentage >= 80) {
+                    finalScoreElement.classList.add('text-green-500');
+                    gradeIcon.className = "fas fa-award text-4xl text-green-500";
+                } else if (percentage >= 60) {
+                    finalScoreElement.classList.add('text-yellow-500');
+                    gradeIcon.className = "fas fa-award text-4xl text-yellow-500";
+                } else {
+                    finalScoreElement.classList.add('text-red-500');
+                    gradeIcon.className = "fas fa-award text-4xl text-red-500";
+                }
             }
 
             // Cheating UI
@@ -569,12 +687,7 @@
             }
         }
 
-        function restartQuiz() {
-            nameInput.value = "";
-            startBtn.setAttribute('disabled', 'true');
-            resultScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
-        }
+        // Restart function removed intentionally
     </script>
 </body>
 </html>
